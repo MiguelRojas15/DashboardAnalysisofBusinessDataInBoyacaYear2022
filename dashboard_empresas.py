@@ -8,18 +8,23 @@ import numpy as np
 df = pd.read_excel("PROYECTO_BOYACA_EMPRESAS_LIMPIO.xlsx")
 print("Archivo cargado correctamente")
 print(f"Datos cargados: {len(df)} filas, {len(df.columns)} columnas")
+print("Columnas disponibles:")
+for i, col in enumerate(df.columns):
+    print(f"{i+1}. {col}")
+print("-" * 50)
 
 app = dash.Dash(__name__)
 app.title = "📊 Dashboard Empresas Boyacá"
 
-# Paleta de colores corporativa inspirada en la teoría del color
+# Paleta de colores corporativa mejorada - amarillo más visible
 COLORS = {
     'background': '#f8fafc',          # Blanco suave
     'surface': '#ffffff',             # Blanco puro
     'primary': '#2563eb',             # Azul corporativo
     'secondary': '#1e40af',           # Azul más oscuro
     'accent': '#059669',              # Verde empresarial
-    'warning': '#d97706',             # Naranja profesional
+    'warning': '#f59e0b',             # Amarillo más fuerte y visible (cambiado)
+    'danger': '#dc2626',              # Rojo para alertas
     'text': '#1f2937',               # Gris oscuro para texto
     'text_secondary': '#6b7280',      # Gris medio
     'border': '#e5e7eb',             # Gris claro para bordes
@@ -180,8 +185,11 @@ app.layout = html.Div([
         'border': f'1px solid {COLORS["border"]}'
     }),
 
-    # KPIs
+    # KPIs principales
     html.Div(id='kpis-container', style={'margin': '20px'}),
+
+    # KPIs adicionales del documento
+    html.Div(id='kpis-adicionales', style={'margin': '20px'}),
 
     # Gráficos superiores
     html.Div([
@@ -328,6 +336,7 @@ app.index_string = '''
     Output('barchart', 'figure'),
     Output('scatterplot', 'figure'),
     Output('kpis-container', 'children'),
+    Output('kpis-adicionales', 'children'),
     Output('data-table', 'children'),
     Input('sector-dropdown', 'value'),
     Input('municipio-dropdown', 'value'),
@@ -348,13 +357,44 @@ def update_dashboard(sector, municipios, ventas_range):
             (filtered_df['Ventas mensuales (Millones)'] <= ventas_range[1])
         ]
 
-    # Cálculo de KPIs
+    # Cálculo de KPIs básicos
     total_empresas = len(filtered_df)
     promedio_ventas = filtered_df['Ventas mensuales (Millones)'].mean() if not filtered_df['Ventas mensuales (Millones)'].isna().all() else 0
     total_empleados = filtered_df['Numero empleados'].sum() if not filtered_df['Numero empleados'].isna().all() else 0
     sectores_activos = filtered_df['SectorProductivo'].nunique()
 
-    # KPIs con diseño corporativo
+    # Cálculo de KPIs adicionales - solo los que tienen datos reales
+    try:
+        # 1. Ratio de ventas por empleado promedio (este sí funciona)
+        if 'Numero empleados' in filtered_df.columns and 'Ventas mensuales (Millones)' in filtered_df.columns:
+            # Crear una copia para evitar warnings
+            ratio_calc = filtered_df[['Ventas mensuales (Millones)', 'Numero empleados']].copy()
+            ratio_calc = ratio_calc.dropna()
+            ratio_calc = ratio_calc[ratio_calc['Numero empleados'] > 0]
+            
+            if len(ratio_calc) > 0:
+                ratio_calc['ratio'] = ratio_calc['Ventas mensuales (Millones)'] / ratio_calc['Numero empleados']
+                ratio_promedio = ratio_calc['ratio'].mean()
+            else:
+                ratio_promedio = 0
+        else:
+            ratio_promedio = 0
+            
+        # 2. Ventas máximas y mínimas del grupo filtrado
+        ventas_maxima = filtered_df['Ventas mensuales (Millones)'].max() if not filtered_df['Ventas mensuales (Millones)'].isna().all() else 0
+        ventas_minima = filtered_df['Ventas mensuales (Millones)'].min() if not filtered_df['Ventas mensuales (Millones)'].isna().all() else 0
+        
+        # 3. Promedio de empleados
+        promedio_empleados = filtered_df['Numero empleados'].mean() if not filtered_df['Numero empleados'].isna().all() else 0
+    
+    except Exception as e:
+        print(f"Error calculando KPIs: {e}")
+        ratio_promedio = 0
+        ventas_maxima = 0
+        ventas_minima = 0
+        promedio_empleados = 0
+
+    # KPIs principales con diseño corporativo
     kpis = html.Div([
         html.Div([
             html.Div([
@@ -491,8 +531,137 @@ def update_dashboard(sector, municipios, ventas_range):
         'flexWrap': 'wrap'
     })
 
+    # KPIs adicionales con datos reales
+    kpis_adicionales = html.Div([
+        html.H3("📈 KPIs ESTRATÉGICOS ADICIONALES", 
+                style={
+                    'color': COLORS['text'], 
+                    'textAlign': 'center', 
+                    'marginBottom': '25px',
+                    'fontSize': '24px',
+                    'fontWeight': '600',
+                    'fontFamily': 'Inter, sans-serif'
+                }),
+        
+        html.Div([
+            # Ratio Ventas por Empleado
+            html.Div([
+                html.Div([
+                    html.I(className="fas fa-chart-line", style={'fontSize': '20px', 'color': COLORS['primary'], 'marginBottom': '8px'}),
+                    html.H3(f"${ratio_promedio:.2f}M", 
+                           style={
+                               'color': COLORS['primary'], 
+                               'fontSize': '28px', 
+                               'margin': '0',
+                               'fontWeight': '700',
+                               'fontFamily': 'Inter, sans-serif'
+                           }),
+                    html.P("Ratio Ventas/Empleado", 
+                          style={
+                              'color': COLORS['text_secondary'], 
+                              'fontSize': '12px', 
+                              'margin': '5px 0 0 0',
+                              'fontWeight': '500',
+                              'fontFamily': 'Inter, sans-serif'
+                          })
+                ], style={'textAlign': 'center'})
+            ], style={
+                'backgroundColor': COLORS['surface'], 
+                'padding': '20px 15px', 
+                'borderRadius': '10px', 
+                'width': '30%', 
+                'display': 'inline-block', 
+                'margin': '1.5%',
+                'boxShadow': f'0 3px 10px {COLORS["shadow"]}',
+                'border': f'1px solid {COLORS["primary"]}',
+                'borderLeft': f'4px solid {COLORS["primary"]}'
+            }),
+            
+            # Ventas Máximas
+            html.Div([
+                html.Div([
+                    html.I(className="fas fa-arrow-up", style={'fontSize': '20px', 'color': COLORS['accent'], 'marginBottom': '8px'}),
+                    html.H3(f"${ventas_maxima:.1f}M", 
+                           style={
+                               'color': COLORS['accent'], 
+                               'fontSize': '28px', 
+                               'margin': '0',
+                               'fontWeight': '700',
+                               'fontFamily': 'Inter, sans-serif'
+                           }),
+                    html.P("Ventas Máximas", 
+                          style={
+                              'color': COLORS['text_secondary'], 
+                              'fontSize': '12px', 
+                              'margin': '5px 0 0 0',
+                              'fontWeight': '500',
+                              'fontFamily': 'Inter, sans-serif'
+                          })
+                ], style={'textAlign': 'center'})
+            ], style={
+                'backgroundColor': COLORS['surface'], 
+                'padding': '20px 15px', 
+                'borderRadius': '10px', 
+                'width': '30%', 
+                'display': 'inline-block', 
+                'margin': '1.5%',
+                'boxShadow': f'0 3px 10px {COLORS["shadow"]}',
+                'border': f'1px solid {COLORS["accent"]}',
+                'borderLeft': f'4px solid {COLORS["accent"]}'
+            }),
+            
+            # Promedio de Empleados
+            html.Div([
+                html.Div([
+                    html.I(className="fas fa-user-friends", style={'fontSize': '20px', 'color': COLORS['warning'], 'marginBottom': '8px'}),
+                    html.H3(f"{promedio_empleados:.0f}", 
+                           style={
+                               'color': COLORS['warning'], 
+                               'fontSize': '28px', 
+                               'margin': '0',
+                               'fontWeight': '700',
+                               'fontFamily': 'Inter, sans-serif'
+                           }),
+                    html.P("Empleados Promedio", 
+                          style={
+                              'color': COLORS['text_secondary'], 
+                              'fontSize': '12px', 
+                              'margin': '5px 0 0 0',
+                              'fontWeight': '500',
+                              'fontFamily': 'Inter, sans-serif'
+                          })
+                ], style={'textAlign': 'center'})
+            ], style={
+                'backgroundColor': COLORS['surface'], 
+                'padding': '20px 15px', 
+                'borderRadius': '10px', 
+                'width': '30%', 
+                'display': 'inline-block', 
+                'margin': '1.5%',
+                'boxShadow': f'0 3px 10px {COLORS["shadow"]}',
+                'border': f'1px solid {COLORS["warning"]}',
+                'borderLeft': f'4px solid {COLORS["warning"]}'
+            })
+        ], style={
+            'display': 'flex',
+            'justifyContent': 'center',
+            'gap': '15px',
+            'flexWrap': 'wrap'
+        })
+    ], style={
+        'backgroundColor': COLORS['surface'],
+        'padding': '25px',
+        'borderRadius': '16px',
+        'margin': '20px',
+        'boxShadow': f'0 4px 20px {COLORS["shadow"]}',
+        'border': f'1px solid {COLORS["border"]}'
+    })
+
     # Template limpio para gráficos
     template = "plotly_white"
+    
+    # Paleta de colores mejorada para gráficos (sin amarillo suave)
+    colores_graficos = [COLORS['primary'], COLORS['accent'], COLORS['warning'], COLORS['secondary'], COLORS['danger'], '#8b5cf6', '#06b6d4', '#84cc16']
     
     # Histograma
     fig_hist = px.histogram(
@@ -520,7 +689,7 @@ def update_dashboard(sector, municipios, ventas_range):
         title="📈 Análisis de Ventas por Sector Productivo",
         color="SectorProductivo",
         template=template,
-        color_discrete_sequence=px.colors.qualitative.Set3
+        color_discrete_sequence=colores_graficos
     )
     fig_box.update_layout(
         plot_bgcolor=COLORS['surface'],
@@ -540,7 +709,7 @@ def update_dashboard(sector, municipios, ventas_range):
     fig_pie = px.pie(
         names=genero_counts.index, values=genero_counts.values,
         title="👥 Distribución por Género del Responsable",
-        color_discrete_sequence=[COLORS['primary'], COLORS['accent'], COLORS['warning'], COLORS['secondary']],
+        color_discrete_sequence=colores_graficos,
         template=template
     )
     fig_pie.update_traces(
@@ -567,7 +736,7 @@ def update_dashboard(sector, municipios, ventas_range):
         x=top_municipios.values, y=top_municipios.index,
         orientation='h', title="🏛️ Top 10 Municipios por Número de Empresas",
         color=top_municipios.values,
-        color_continuous_scale='Blues',
+        color_continuous_scale=[[0, COLORS['primary']], [0.5, COLORS['accent']], [1, COLORS['warning']]],
         template=template
     )
     fig_bar.update_layout(
@@ -592,7 +761,7 @@ def update_dashboard(sector, municipios, ventas_range):
         size_max=25,
         template=template,
         opacity=0.7,
-        color_discrete_sequence=px.colors.qualitative.Set3
+        color_discrete_sequence=colores_graficos
     )
     fig_scatter.update_layout(
         plot_bgcolor=COLORS['surface'],
@@ -638,10 +807,11 @@ def update_dashboard(sector, municipios, ventas_range):
         style_table={'overflowX': 'auto', 'borderRadius': '8px'}
     )
 
-    return fig_hist, fig_box, fig_pie, fig_bar, fig_scatter, kpis, table
+    return fig_hist, fig_box, fig_pie, fig_bar, fig_scatter, kpis, kpis_adicionales, table
 
 if __name__ == '__main__':
     print("🚀 Iniciando Dashboard Corporativo...")
     print("🌐 Abre tu navegador en: http://127.0.0.1:8050")
     print("⏹️ Para detener: Ctrl+C")
     app.run(debug=True, host='127.0.0.1', port=8050)
+                               
