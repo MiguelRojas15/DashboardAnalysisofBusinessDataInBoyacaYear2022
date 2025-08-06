@@ -810,8 +810,6 @@ def update_dashboard(sector, municipios, ventas_range):
     return fig_hist, fig_box, fig_pie, fig_bar, fig_scatter, kpis, kpis_adicionales, table
 
 if __name__ == '__main__':
-    print("🚀 Iniciando Dashboard Corporativo...")
-    print("🌐 Abre tu navegador en: http://127.0.0.1:8050")
-    print("⏹️ Para detener: Ctrl+C")
-    app.run(debug=True, host='127.0.0.1', port=8050)
-                               
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(debug=False, host='0.0.0.0', port=port)
