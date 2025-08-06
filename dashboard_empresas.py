@@ -668,7 +668,8 @@ def update_dashboard(sector, municipios, ventas_range):
         filtered_df, x="Ventas mensuales (Millones)",
         nbins=25, title="📊 Distribución de Ventas Mensuales",
         color_discrete_sequence=[COLORS['primary']],
-        template=template
+        template=template,
+        labels={'count': 'Número de empresas'}
     )
     fig_hist.update_layout(
         plot_bgcolor=COLORS['surface'],
@@ -679,7 +680,9 @@ def update_dashboard(sector, municipios, ventas_range):
         title_font_size=18,
         title_font_color=COLORS['text'],
         title_font_family='Inter',
-        font_family='Inter'
+        font_family='Inter',
+        yaxis_title="Número de empresas",  # Asegurar el título del eje Y
+        xaxis_title="Ventas mensuales (Millones)"
     )
     fig_hist.update_traces(opacity=0.8, marker_line_width=1, marker_line_color='white')
 
